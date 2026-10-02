@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voting &amp; Kesan Pesan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0e1b2c;--sea:#16324f;--sand:#f1e7d0;--gold:#f2b632;--mint:#7fd6c2;--err:#ff9b8a}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--ink);color:var(--sand)}
+body{background:radial-gradient(1200px 600px at 80% -10%,#1d4468 0,transparent 60%),var(--ink);padding:20px 16px 48px}
+.wrap{max-width:560px;margin:0 auto}
+.panel{background:rgba(14,27,44,.92);border:1px solid rgba(241,231,208,.18);border-radius:14px;padding:20px}
+h1,h2,h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;line-height:1.15;margin:0 0 6px}
+h1{font-size:1.8rem}
+h2{font-size:1.2rem}
+h3{font-size:1.05rem;margin:0}
+p{line-height:1.5}
+.sub{margin:0 0 14px;color:var(--mint);font-size:.95rem}
+.menu{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+.menu a{flex:1 1 auto;text-align:center;padding:7px 10px;border-radius:999px;font-size:.8rem;font-weight:600;text-decoration:none;border:1px solid rgba(241,231,208,.3);color:var(--sand)}
+.menu a:hover{border-color:var(--gold)}
+.menu a.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+label{display:block;font-size:.85rem;margin:12px 0 4px}
+input,textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(241,231,208,.25);background:var(--sea);color:var(--sand);font:inherit}
+textarea{resize:vertical;min-height:84px}
+button{display:block;width:100%;margin-top:12px;padding:11px;border-radius:8px;border:0;font:inherit;font-weight:700;cursor:pointer;text-align:center}
+.main{background:var(--gold);color:var(--ink)}
+.ghost{background:transparent;color:var(--sand);border:1px solid rgba(241,231,208,.4)}
+button:disabled{opacity:.5;cursor:not-allowed}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.hint{font-size:.82rem;opacity:.75;margin:8px 0 0}
+.status{min-height:1.2em;font-size:.85rem;margin-top:10px}
+.status.err{color:var(--err)}
+.status.ok{color:var(--mint)}
+[hidden]{display:none!important}
+
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 16px}
+.tabs button{margin:0;padding:9px 6px;font-size:.85rem;background:var(--sea);color:var(--sand);border:1px solid rgba(241,231,208,.25)}
+.tabs button[aria-pressed="true"]{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+
+.cat{padding:12px 0;border-top:1px solid rgba(241,231,208,.12)}
+.cat:first-of-type{border-top:0}
+.cat .d{font-size:.82rem;opacity:.75;margin:2px 0 6px}
+
+.res{padding:12px 0;border-top:1px solid rgba(241,231,208,.12)}
+.res:first-of-type{border-top:0}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;margin-top:8px;font-size:.92rem}
+.row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .ct{font-weight:700}
+.row .bar{grid-column:1/-1;height:6px;border-radius:99px;background:var(--sea);overflow:hidden}
+.row .bar i{display:block;height:100%;background:var(--mint)}
+.row.top .bar i{background:var(--gold)}
+.row.top .nm{font-weight:700;color:var(--gold)}
+.empty{opacity:.7;font-size:.9rem;margin:8px 0 0}
+
+.counter{font-size:.78rem;opacity:.7;text-align:right;margin-top:4px}
+.msgs{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.msgs li{background:var(--sea);border-radius:10px;padding:10px 12px}
+.msgs .who{font-weight:700;color:var(--gold);font-size:.9rem}
+.msgs .txt{margin:4px 0 0;font-size:.92rem;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="panel">
+  <nav class="menu" aria-label="Menu utama"><a href="index.html">Peta Alumni</a><a href="kuis.html">Kuis Nostalgia</a><a href="kartu.html">Kartu Obrolan</a><a href="voting.html" class="on" aria-current="page">Voting</a></nav>
+
+  <h1>Voting &amp; Kesan Pesan</h1>
+  <p class="sub" id="info">Memuat data…</p>
+
+  <div class="tabs" role="group" aria-label="Bagian">
+    <button type="button" data-tab="vote" aria-pressed="true">Pilih</button>
+    <button type="button" data-tab="result" aria-pressed="false">Hasil</button>
+    <button type="button" data-tab="memo" aria-pressed="false">Kesan Pesan</button>
+  </div>
+
+  <!-- Voting -->
+  <div id="tab-vote">
+    <p>Pilih satu alumni untuk tiap penghargaan. Kategori boleh dilewati, dan satu nama hanya bisa memilih satu kali per kategori.</p>
+    <label for="voter">Nama kamu</label>
+    <input id="voter" maxlength="60" placeholder="Nama kamu" autocomplete="name">
+    <div id="cats"></div>
+    <button class="main" id="btnVote" type="button" disabled>Kirim suara</button>
+    <div class="status" id="voteStatus" role="status"></div>
+  </div>
+
+  <!-- Hasil -->
+  <div id="tab-result" hidden>
+    <div id="results"></div>
+    <button class="ghost" id="btnRefresh" type="button">Muat ulang hasil</button>
+    <div class="status" id="resStatus" role="status"></div>
+  </div>
+
+  <!-- Kesan pesan -->
+  <div id="tab-memo" hidden>
+    <p>Tulis kesan atau pesan untuk angkatan kita.</p>
+    <label for="mName">Nama</label>
+    <input id="mName" maxlength="60" placeholder="Nama kamu" autocomplete="name">
+    <label for="mText">Kesan &amp; pesan</label>
+    <textarea id="mText" maxlength="280" placeholder="Kenangan terbaik, harapan, atau sekadar sapaan…"></textarea>
+    <div class="counter"><span id="mCount">0</span>/280</div>
+    <button class="main" id="btnMemo" type="button">Kirim pesan</button>
+    <div class="status" id="memoStatus" role="status"></div>
+    <ul class="msgs" id="msgs"></ul>
+  </div>
+</section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const say = (id, t, cls = '') => { $(id).textContent = t; $(id).className = 'status ' + cls; };
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+const norm = s => s.trim().toLowerCase();
+
+let cats = [], nominees = [];
+
+const saved = store.get('alumniName');
+if (saved) { $('voter').value = saved; $('mName').value = saved; }
+
+// ---------- Tab ----------
+function showTab(t) {
+  ['vote', 'result', 'memo'].forEach(k => $('tab-' + k).hidden = k !== t);
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === t)));
+  if (t === 'result') loadResults();
+  if (t === 'memo' && !$('msgs').children.length) loadMemos();
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+// ---------- Muat kategori & nominasi ----------
+async function init() {
+  const [c, n] = await Promise.all([
+    db.from('award_categories').select('id,title,description').order('position'),
+    db.from('award_nominees').select('id,name').order('name')
+  ]);
+  if (c.error || n.error || !c.data.length || !n.data.length) {
+    $('info').textContent = 'Data voting belum bisa dimuat.';
+    say('voteStatus', c.error || n.error ? 'Periksa URL dan key Supabase.' : 'Kategori atau daftar alumni belum diisi di database.', 'err');
+    return;
+  }
+  cats = c.data; nominees = n.data;
+  $('info').textContent = `${cats.length} penghargaan · ${nominees.length} alumni`;
+  const box = $('cats');
+  cats.forEach(cat => {
+    const d = document.createElement('div'); d.className = 'cat';
+    const h = document.createElement('h3'); h.textContent = cat.title;
+    const p = document.createElement('p'); p.className = 'd'; p.textContent = cat.description || '';
+    const sel = document.createElement('select');
+    sel.id = 'cat-' + cat.id; sel.setAttribute('aria-label', cat.title);
+    sel.add(new Option('— pilih alumni —', ''));
+    nominees.forEach(x => sel.add(new Option(x.name, x.id)));
+    d.append(h, p, sel); box.appendChild(d);
+  });
+  $('btnVote').disabled = false;
+}
+
+// ---------- Kirim suara ----------
+$('btnVote').onclick = async () => {
+  const voter = $('voter').value.trim();
+  if (!voter) { say('voteStatus', 'Isi nama dulu.', 'err'); return $('voter').focus(); }
+  const picks = [];
+  let skippedSelf = 0;
+  cats.forEach(cat => {
+    const v = $('cat-' + cat.id).value;
+    if (!v) return;
+    const nom = nominees.find(x => String(x.id) === v);
+    if (norm(nom.name) === norm(voter)) { skippedSelf++; return; }
+    picks.push({ category_id: cat.id, nominee_id: nom.id, voter_name: voter });
+  });
+  if (!picks.length) return say('voteStatus', skippedSelf ? 'Tidak bisa memilih diri sendiri. Pilih alumni lain.' : 'Pilih minimal satu kategori.', 'err');
+
+  $('btnVote').disabled = true; say('voteStatus', 'Mengirim…');
+  store.set('alumniName', voter); $('mName').value = voter;
+  const results = await Promise.all(picks.map(p => db.from('award_votes').insert(p)));
+  const ok = results.filter(r => !r.error).length;
+  const dup = results.filter(r => r.error && r.error.code === '23505').length;
+  const fail = results.length - ok - dup;
+  $('btnVote').disabled = false;
+
+  const parts = [];
+  if (ok) parts.push(`${ok} suara tersimpan`);
+  if (dup) parts.push(`${dup} kategori sudah pernah kamu pilih`);
+  if (skippedSelf) parts.push(`${skippedSelf} dilewati (tidak bisa memilih diri sendiri)`);
+  if (fail) parts.push(`${fail} gagal, coba lagi`);
+  say('voteStatus', parts.join(' · ') + '.', fail ? 'err' : 'ok');
+  if (ok) { store.set('voteDone', '1'); setTimeout(() => showTab('result'), 900); }
+};
+
+// ---------- Hasil ----------
+async function loadResults() {
+  say('resStatus', 'Memuat…');
+  const { data, error } = await db.from('award_results').select('category_id,nominee_name,votes');
+  const box = $('results'); box.innerHTML = '';
+  if (error || !data) return say('resStatus', 'Hasil belum bisa dimuat.', 'err');
+  say('resStatus', '');
+  let total = 0;
+  cats.forEach(cat => {
+    const rows = data.filter(r => r.category_id === cat.id).sort((a, b) => b.votes - a.votes || a.nominee_name.localeCompare(b.nominee_name));
+    const sum = rows.reduce((s, r) => s + r.votes, 0); total += sum;
+    const sec = document.createElement('div'); sec.className = 'res';
+    const h = document.createElement('h3'); h.textContent = cat.title; sec.appendChild(h);
+    if (!rows.length) { const e = document.createElement('p'); e.className = 'empty'; e.textContent = 'Belum ada suara.'; sec.appendChild(e); }
+    const max = rows.length ? rows[0].votes : 1;
+    rows.slice(0, 5).forEach((r, i) => {
+      const row = document.createElement('div'); row.className = 'row' + (i === 0 ? ' top' : '');
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (i === 0 ? '🏆 ' : '') + r.nominee_name;
+      const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = r.votes + ' suara';
+      const bar = document.createElement('div'); bar.className = 'bar'; bar.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('i'); fill.style.width = (r.votes / max * 100) + '%'; bar.appendChild(fill);
+      row.append(nm, ct, bar); sec.appendChild(row);
+    });
+    box.appendChild(sec);
+  });
+  say('resStatus', `${total} suara masuk sejauh ini.`);
+}
+$('btnRefresh').onclick = loadResults;
+
+// ---------- Kesan pesan ----------
+function memoItem(m) {
+  const li = document.createElement('li');
+  const w = document.createElement('div'); w.className = 'who'; w.textContent = m.name;
+  const t = document.createElement('p'); t.className = 'txt'; t.textContent = m.message;
+  li.append(w, t); return li;
+}
+async function loadMemos() {
+  const { data, error } = await db.from('memories').select('name,message').order('created_at', { ascending: false }).limit(50);
+  const ul = $('msgs'); ul.innerHTML = '';
+  if (error || !data) return say('memoStatus', 'Pesan belum bisa dimuat.', 'err');
+  if (!data.length) say('memoStatus', 'Jadilah yang pertama menulis pesan!');
+  data.forEach(m => ul.appendChild(memoItem(m)));
+}
+$('mText').addEventListener('input', () => $('mCount').textContent = $('mText').value.length);
+$('btnMemo').onclick = async () => {
+  const name = $('mName').value.trim(), message = $('mText').value.trim();
+  if (!name) { say('memoStatus', 'Isi nama dulu.', 'err'); return $('mName').focus(); }
+  if (!message) { say('memoStatus', 'Tulis pesannya dulu.', 'err'); return $('mText').focus(); }
+  $('btnMemo').disabled = true; say('memoStatus', 'Mengirim…');
+  const { error } = await db.from('memories').insert({ name, message });
+  $('btnMemo').disabled = false;
+  if (error) return say('memoStatus', 'Gagal mengirim. Coba lagi.', 'err');
+  store.set('alumniName', name);
+  $('msgs').prepend(memoItem({ name, message }));
+  $('mText').value = ''; $('mCount').textContent = '0';
+  say('memoStatus', 'Terkirim. Terima kasih, ' + name + '!', 'ok');
+};
+
+init();
+</script>
+</body>
+</html>

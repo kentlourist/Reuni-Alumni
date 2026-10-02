@@ -3,180 +3,147 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kuis Nostalgia</title>
+<title>Peta Alumni</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#0e1b2c;--sea:#16324f;--sand:#f1e7d0;--gold:#f2b632;--mint:#7fd6c2;--err:#ff9b8a}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at 20% 0%,#1d4467 0,var(--ink) 55%);color:var(--sand);display:flex;justify-content:center;padding:20px}
-main{width:100%;max-width:560px}
-nav a{color:var(--mint);font-size:.85rem;text-decoration:none}
-h1,h2{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;line-height:1.1;margin:.4em 0}
-h1{font-size:2.1rem}
-.card{background:rgba(14,27,44,.85);border:1px solid rgba(241,231,208,.18);border-radius:14px;padding:20px;margin-top:14px}
-.hidden{display:none}
-label{display:block;font-size:.85rem;margin:12px 0 4px}
-input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(241,231,208,.25);background:var(--sea);color:var(--sand);font:inherit}
-button{font:inherit;cursor:pointer}
-button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.btn{width:100%;margin-top:12px;padding:11px;border-radius:8px;border:0;font-weight:600;background:var(--gold);color:var(--ink)}
-.btn.ghost{background:transparent;color:var(--sand);border:1px solid rgba(241,231,208,.4)}
-.meta{display:flex;justify-content:space-between;font-size:.85rem;opacity:.85}
-.bar{height:6px;border-radius:3px;background:var(--sea);margin:8px 0 16px;overflow:hidden}
-.bar i{display:block;height:100%;width:100%;background:var(--gold)}
-.q{font-size:1.25rem;line-height:1.35;margin:0 0 14px}
-.opt{display:block;width:100%;text-align:left;margin-top:8px;padding:12px 14px;border-radius:10px;border:1px solid rgba(241,231,208,.3);background:var(--sea);color:var(--sand)}
-.opt:hover:not(:disabled){border-color:var(--gold)}
-.opt.right{background:#1f6b5a;border-color:var(--mint)}
-.opt.wrong{background:#6b2f2f;border-color:var(--err)}
-.opt:disabled{cursor:default}
-#fb{min-height:1.4em;margin:12px 0 0;font-weight:600}
-.big{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:3rem;font-weight:800;color:var(--gold);margin:0}
-ol{padding-left:1.4em;margin:8px 0 0}
-li{padding:5px 0;border-bottom:1px solid rgba(241,231,208,.1)}
-li span{float:right;font-weight:600;color:var(--gold)}
-li.me{color:var(--mint)}
-.err{color:var(--err);font-size:.85rem;min-height:1.2em;margin:8px 0 0}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--ink);color:var(--sand)}
+#map{position:absolute;inset:0}
+.panel{position:absolute;z-index:1000;left:16px;top:16px;width:min(340px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:rgba(14,27,44,.92);border:1px solid rgba(241,231,208,.18);border-radius:14px;padding:18px;backdrop-filter:blur(6px)}
+h1{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;font-size:1.6rem;line-height:1.1;margin:0 0 4px}
+.count{margin:0 0 14px;color:var(--mint);font-size:.9rem}
+label{display:block;font-size:.85rem;margin:10px 0 4px}
+input,textarea{width:100%;padding:9px 10px;border-radius:8px;border:1px solid rgba(241,231,208,.25);background:var(--sea);color:var(--sand);font:inherit}
+textarea{resize:vertical;min-height:58px}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button{width:100%;margin-top:10px;padding:10px;border-radius:8px;border:0;font:inherit;font-weight:600;cursor:pointer}
+.ghost{background:transparent;color:var(--sand);border:1px solid rgba(241,231,208,.4)}
+.main{background:var(--gold);color:var(--ink)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.hint{font-size:.8rem;opacity:.75;margin:6px 0 0}
+#status{min-height:1.2em;font-size:.85rem;margin-top:10px}
+#status.err{color:var(--err)}
+#status.ok{color:var(--mint)}
+.pin{width:16px;height:16px;border-radius:50%;background:var(--gold);border:3px solid #fff;box-shadow:0 0 0 4px rgba(242,182,50,.35)}
+.pin.me{background:var(--mint);box-shadow:0 0 0 4px rgba(127,214,194,.4)}
+.leaflet-popup-content{font-family:system-ui,sans-serif;margin:10px 12px}
+.leaflet-popup-content b{font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.menu{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.menu a,.menu span{flex:1 1 auto;text-align:center;padding:7px 10px;border-radius:999px;font-size:.8rem;font-weight:600;text-decoration:none;border:1px solid rgba(241,231,208,.3);color:var(--sand)}
+.menu a:hover{border-color:var(--gold)}
+.menu a.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.menu span{opacity:.45;cursor:not-allowed}
+.cta{display:block;margin-top:12px;padding:11px;border-radius:8px;background:var(--mint);color:var(--ink);font-weight:700;text-align:center;text-decoration:none}
+@media (max-width:600px){.panel{top:auto;bottom:0;left:0;width:100%;max-height:60%;border-radius:14px 14px 0 0}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
-<main>
-  <nav><a href="index.html">← Peta Alumni</a></nav>
+<div id="map"></div>
 
-  <section id="s-start" class="card">
-    <h1>Kuis Nostalgia</h1>
-    <p>Seberapa kuat ingatanmu tentang masa kuliah? Jawab cepat, karena sisa waktu menambah poin.</p>
-    <label for="name">Nama</label>
-    <input id="name" maxlength="60" placeholder="Nama kamu" autocomplete="name">
-    <button class="btn" id="go">Mulai kuis</button>
-    <button class="btn ghost" id="showBoard">Lihat papan skor</button>
-    <p class="err" id="err"></p>
-  </section>
+<section class="panel">
+  <nav class="menu" aria-label="Menu utama"><a href="index.html" class="on" aria-current="page">Peta Alumni</a><a href="kuis.html">Kuis Nostalgia</a><span title="Segera hadir">Kartu Obrolan</span><span title="Segera hadir">Voting</span></nav>
+  <h1>Peta Alumni</h1>
+  <p class="count" id="count">Memuat peta…</p>
 
-  <section id="s-quiz" class="card hidden">
-    <div class="meta"><span id="prog"></span><span id="pts"></span></div>
-    <div class="bar"><i id="barFill"></i></div>
-    <p class="q" id="qtext"></p>
-    <div id="opts"></div>
-    <p id="fb" role="status"></p>
-    <button class="btn hidden" id="next">Soal berikutnya</button>
-  </section>
+  <button class="ghost" id="btnLocate" type="button">Deteksi lokasi saya</button>
+  <p class="hint">Atau klik langsung di peta. Penanda hijau bisa digeser.</p>
 
-  <section id="s-end" class="card hidden">
-    <h2>Selesai!</h2>
-    <p class="big" id="final"></p>
-    <p id="summary"></p>
-    <h2>Papan skor</h2>
-    <ol id="board"></ol>
-    <p class="err" id="err2"></p>
-    <button class="btn ghost" id="again">Main lagi</button>
-  </section>
+  <label for="name">Nama</label>
+  <input id="name" maxlength="60" placeholder="Nama kamu" autocomplete="name">
 
-  <section id="s-board" class="card hidden">
-    <h2>Papan skor</h2>
-    <ol id="board2"></ol>
-    <button class="btn ghost" id="back">Kembali</button>
-  </section>
-</main>
+  <label for="note">Kabar singkat (opsional)</label>
+  <textarea id="note" maxlength="140" placeholder="Sekarang kerja di mana, atau lagi sibuk apa?"></textarea>
 
+  <button class="main" id="btnSave" type="button" disabled>Tandai lokasi saya</button>
+  <p class="hint">Lokasi dibulatkan ke area ±1 km supaya alamat rumah tidak terlihat.</p>
+  <div id="status" role="status"></div>
+  <a class="cta" id="cta" href="kuis.html" hidden>Lanjut ke Kuis Nostalgia →</a>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <script>
-// ====== ISI DENGAN DATA PROYEK SUPABASE YANG SAMA DENGAN PETA ======
-const SUPABASE_URL = 'https://gcrccviigeqaiiuwdezs.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable__AAZtFIKxorE_uiPsq_yVA_gmDq-1d5';
-// ===================================================================
-const TIME = 15;            // detik per soal
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
-const screens = ['s-start', 's-quiz', 's-end', 's-board'];
-const show = id => screens.forEach(s => $(s).classList.toggle('hidden', s !== id));
+const statusEl = $('status');
+const say = (t, cls = '') => { statusEl.textContent = t; statusEl.className = cls; };
+const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
 
-let qs = [], i = 0, score = 0, right = 0, name = '', timer = null, deadline = 0, locked = false;
+// Peta: citra satelit Esri + label nama tempat
+const map = L.map('map', { worldCopyJump: true, minZoom: 2, zoomControl: false }).setView([-2.5, 118], 4);
+L.control.zoom({ position: 'topright' }).addTo(map);
+const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { maxZoom: 18, attribution: 'Citra &copy; Esri, Maxar, Earthstar Geographics' }).addTo(map);
+const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+  { maxZoom: 18 }).addTo(map);
+const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+L.control.layers({ 'Satelit': sat, 'Peta jalan': street }, { 'Nama tempat': labels }, { position: 'topright' }).addTo(map);
 
-async function loadQuestions() {
-  const { data, error } = await db.from('quiz_questions').select('id,question,options,answer_index').order('position');
-  if (error || !data || !data.length) throw new Error('Soal belum tersedia.');
-  qs = data;
+const icon = cls => L.divIcon({ className: '', html: `<div class="pin ${cls}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+if (store.get('alumniName')) $('name').value = store.get('alumniName');
+if (store.get('alumniDone')) $('cta').hidden = false;
+const round = n => Math.round(n * 100) / 100;
+
+// Tampilkan alumni yang sudah tersimpan
+function addAlumni(a) {
+  L.marker([a.lat, a.lng], { icon: icon('') }).addTo(map)
+    .bindPopup(`<b>${esc(a.name)}</b>${a.note ? `<br>${esc(a.note)}` : ''}`);
+}
+async function load() {
+  const { data, error } = await db.from('alumni_locations').select('name,note,lat,lng').order('created_at');
+  if (error) { $('count').textContent = 'Data belum bisa dimuat.'; say('Periksa URL dan key Supabase.', 'err'); return; }
+  data.forEach(addAlumni);
+  $('count').textContent = data.length ? `${data.length} alumni sudah menandai lokasi` : 'Jadilah yang pertama menandai lokasi!';
 }
 
-async function renderBoard(el, myName) {
-  const { data, error } = await db.from('quiz_scores').select('name,score').order('score', { ascending: false }).limit(100);
-  el.textContent = '';
-  if (error) { el.textContent = 'Papan skor belum bisa dimuat.'; return; }
-  const seen = new Set();
-  data.filter(r => { const k = r.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
-    .slice(0, 10).forEach(r => {
-      const li = document.createElement('li');
-      li.textContent = r.name;
-      if (myName && r.name.toLowerCase() === myName.toLowerCase()) li.className = 'me';
-      const s = document.createElement('span'); s.textContent = r.score; li.appendChild(s);
-      el.appendChild(li);
-    });
-  if (!el.children.length) el.textContent = 'Belum ada skor. Jadilah yang pertama!';
+// Penanda milik pengisi (bisa digeser)
+let me = null;
+function setMe(latlng, zoom) {
+  if (me) me.setLatLng(latlng);
+  else {
+    me = L.marker(latlng, { icon: icon('me'), draggable: true }).addTo(map);
+    me.on('dragend', () => say('Lokasi diubah. Klik "Tandai lokasi saya" untuk menyimpan.'));
+  }
+  $('btnSave').disabled = false;
+  if (zoom) map.flyTo(latlng, zoom, { duration: 1.4 });
 }
+map.on('click', e => { setMe(e.latlng); say('Lokasi dipilih dari peta.', 'ok'); });
 
-function renderQ() {
-  const q = qs[i]; locked = false;
-  $('prog').textContent = `Soal ${i + 1} dari ${qs.length}`;
-  $('pts').textContent = `Skor ${score}`;
-  $('qtext').textContent = q.question;
-  $('fb').textContent = ''; $('next').classList.add('hidden');
-  const box = $('opts'); box.textContent = '';
-  q.options.forEach((t, idx) => {
-    const b = document.createElement('button');
-    b.className = 'opt'; b.textContent = t; b.onclick = () => answer(idx);
-    box.appendChild(b);
-  });
-  deadline = Date.now() + TIME * 1000;
-  clearInterval(timer);
-  timer = setInterval(() => {
-    const left = deadline - Date.now();
-    $('barFill').style.width = Math.max(0, left / (TIME * 10)) + '%';
-    if (left <= 0) answer(-1);
-  }, 100);
-}
-
-function answer(idx) {
-  if (locked) return; locked = true; clearInterval(timer);
-  const q = qs[i];
-  const secs = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-  const ok = idx === q.answer_index;
-  if (ok) { right++; score += 100 + secs * 5; }
-  [...$('opts').children].forEach((b, k) => {
-    b.disabled = true;
-    if (k === q.answer_index) b.classList.add('right');
-    else if (k === idx) b.classList.add('wrong');
-  });
-  $('fb').textContent = ok ? `Benar! +${100 + secs * 5} poin` : idx === -1 ? 'Waktu habis.' : 'Kurang tepat.';
-  $('pts').textContent = `Skor ${score}`;
-  $('next').textContent = i + 1 < qs.length ? 'Soal berikutnya' : 'Lihat hasil';
-  $('next').classList.remove('hidden'); $('next').focus();
-}
-
-async function finish() {
-  show('s-end');
-  $('final').textContent = score;
-  $('summary').textContent = `${right} dari ${qs.length} jawaban benar.`;
-  $('err2').textContent = '';
-  const { error } = await db.from('quiz_scores').insert({ name, score, correct: right, total: qs.length });
-  if (error) $('err2').textContent = 'Skor gagal disimpan. Coba main lagi.';
-  renderBoard($('board'), name);
-}
-
-$('go').onclick = async () => {
-  name = $('name').value.trim();
-  if (!name) { $('err').textContent = 'Isi nama dulu.'; return $('name').focus(); }
-  $('err').textContent = 'Memuat soal…';
-  try { await loadQuestions(); } catch (e) { return ($('err').textContent = e.message); }
-  $('err').textContent = ''; i = 0; score = 0; right = 0;
-  show('s-quiz'); renderQ();
+$('btnLocate').onclick = () => {
+  if (!navigator.geolocation) return say('Browser ini tidak mendukung deteksi lokasi. Klik di peta saja.', 'err');
+  say('Mendeteksi lokasi…');
+  navigator.geolocation.getCurrentPosition(
+    p => { setMe([p.coords.latitude, p.coords.longitude], 12); say('Lokasi terdeteksi. Geser penanda jika kurang pas.', 'ok'); },
+    () => say('Izin lokasi ditolak. Klik di peta untuk memilih lokasi.', 'err'),
+    { enableHighAccuracy: false, timeout: 10000 }
+  );
 };
-$('next').onclick = () => { i++; i < qs.length ? renderQ() : finish(); };
-$('again').onclick = () => show('s-start');
-$('showBoard').onclick = () => { show('s-board'); renderBoard($('board2'), $('name').value.trim()); };
-$('back').onclick = () => show('s-start');
+
+$('btnSave').onclick = async () => {
+  const name = $('name').value.trim();
+  if (!name) { say('Isi nama dulu.', 'err'); return $('name').focus(); }
+  if (!me) return say('Pilih lokasi dulu.', 'err');
+  const { lat, lng } = me.getLatLng().wrap();
+  const row = { name, note: $('note').value.trim() || null, lat: round(lat), lng: round(lng) };
+  $('btnSave').disabled = true; say('Menyimpan…');
+  const { error } = await db.from('alumni_locations').insert(row);
+  if (error) { $('btnSave').disabled = false; return say('Gagal menyimpan. Coba lagi.', 'err'); }
+  map.removeLayer(me); me = null;
+  addAlumni(row);
+  store.set('alumniName', name); store.set('alumniDone', '1'); $('cta').hidden = false;
+  say('Tersimpan. Terima kasih, ' + name + '! Lanjut main kuis, yuk.', 'ok');
+  const n = parseInt($('count').textContent) || 0;
+  $('count').textContent = `${n + 1} alumni sudah menandai lokasi`;
+};
+
+load();
 </script>
 </body>
 </html>

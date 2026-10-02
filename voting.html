@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alumni Awards · Alumni Hub</title>
+
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<div class="wrap">
+<section class="panel">
+  <nav class="site-nav" aria-label="Menu utama">
+  <a class="brand" href="index.html"><span class="brand-mark">A</span><span class="brand-text"><strong>ALUMNI HUB</strong><span>Reunion &amp; Memories</span></span></a>
+  <div class="nav-links">
+    <a href="index.html" class="NAV_INDEX">Peta Alumni</a>
+    <a href="kuis.html" class="NAV_KUIS">Kuis</a>
+    <a href="kartu.html" class="NAV_KARTU">Kartu</a>
+    <a href="voting.html" class="NAV_VOTING on" aria-current="page">Awards</a>
+  </div>
+  <a class="nav-cta" href="voting.html">Memory Wall →</a>
+</nav>
+
+  <div class="eyebrow">Alumni Awards</div><h1>Voting &amp; Kesan Pesan</h1>
+  <p class="sub" id="info">Memuat data…</p><p class="hint">Rayakan teman-teman yang membuat perjalanan kuliah menjadi berkesan.</p>
+
+  <div class="tabs" role="group" aria-label="Bagian">
+    <button type="button" data-tab="vote" aria-pressed="true">Pilih</button>
+    <button type="button" data-tab="result" aria-pressed="false">Hasil</button>
+    <button type="button" data-tab="memo" aria-pressed="false">Kesan Pesan</button>
+  </div>
+
+  <!-- Voting -->
+  <div id="tab-vote">
+    <p>Ketik satu nama alumni untuk tiap penghargaan. Kategori boleh dilewati.</p>
+    <label for="voter">Nama kamu</label>
+    <input id="voter" maxlength="60" placeholder="Nama kamu" autocomplete="name">
+    <div id="cats"></div>
+    <button class="main" id="btnVote" type="button" disabled>Kirim suara</button>
+    <div class="status" id="voteStatus" role="status"></div>
+  </div>
+
+  <!-- Hasil -->
+  <div id="tab-result" hidden>
+    <div id="results"></div>
+    <button class="ghost" id="btnRefresh" type="button">Muat ulang hasil</button>
+    <div class="status" id="resStatus" role="status"></div>
+  </div>
+
+  <!-- Kesan pesan -->
+  <div id="tab-memo" hidden>
+    <p>Tulis kesan atau pesan untuk angkatan kita.</p>
+    <label for="mName">Nama</label>
+    <input id="mName" maxlength="60" placeholder="Nama kamu" autocomplete="name">
+    <label for="mText">Kesan &amp; pesan</label>
+    <textarea id="mText" maxlength="280" placeholder="Kenangan terbaik, harapan, atau sekadar sapaan…"></textarea>
+    <div class="counter"><span id="mCount">0</span>/280</div>
+    <button class="main" id="btnMemo" type="button">Kirim pesan</button>
+    <div class="status" id="memoStatus" role="status"></div>
+    <ul class="msgs" id="msgs"></ul>
+  </div>
+<div class="footer">Alumni Awards &amp; Memory Wall · Alumni Hub</div>
+</section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+// Konfigurasi Database (memakai koneksi asli dari config.js)
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const say = (id, t, cls = '') => { $(id).textContent = t; $(id).className = 'status ' + cls; };
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+const norm = s => s.trim().toLowerCase();
+
+let cats = [];
+
+// Jika user sudah pernah input nama di halaman lain (tersimpan di localStorage)
+const saved = store.get('alumniName');
+if (saved) { $('voter').value = saved; $('mName').value = saved; }
+
+// ---------- Tab Navigation ----------
+function showTab(t) {
+  ['vote', 'result', 'memo'].forEach(k => $('tab-' + k).hidden = k !== t);
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === t)));
+  if (t === 'result') loadResults();
+  if (t === 'memo' && !$('msgs').children.length) loadMemos();
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+// ---------- Pemuatan Kategori ----------
+async function init() {
+  const { data, error } = await db.from('award_categories').select('id,title,description').order('position');
+  
+  if (error || !data || !data.length) {
+    $('info').textContent = 'Data voting belum bisa dimuat.';
+    say('voteStatus', error ? 'Periksa URL dan key Supabase.' : 'Belum ada kategori di database.', 'err');
+    return;
+  }
+  
+  cats = data;
+  $('info').textContent = `${cats.length} penghargaan`;
+  const box = $('cats');
+  
+  // Render Input Teks untuk Kategori
+  cats.forEach(cat => {
+    const d = document.createElement('div'); d.className = 'cat';
+    const h = document.createElement('h3'); h.textContent = cat.title;
+    const p = document.createElement('p'); p.className = 'd'; p.textContent = cat.description || '';
+    
+    // Perubahan utama: Select menjadi Input Text
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = 'cat-' + cat.id;
+    inp.placeholder = 'Ketik nama alumni...';
+    inp.setAttribute('aria-label', cat.title);
+    
+    d.append(h, p, inp); box.appendChild(d);
+  });
+  $('btnVote').disabled = false;
+}
+
+// ---------- Kirim Suara ----------
+$('btnVote').onclick = async () => {
+  const voter = $('voter').value.trim();
+  if (!voter) { say('voteStatus', 'Isi nama dulu.', 'err'); return $('voter').focus(); }
+  
+  const picks = [];
+  let skippedSelf = 0;
+  
+  cats.forEach(cat => {
+    const v = $('cat-' + cat.id).value.trim(); // Ambil nilai text input
+    if (!v) return;
+    
+    // Cek apakah dia memilih dirinya sendiri (tidak peduli huruf besar/kecil)
+    if (norm(v) === norm(voter)) { skippedSelf++; return; }
+    
+    picks.push({ category_id: cat.id, nominee_name: v, voter_name: voter });
+  });
+  
+  if (!picks.length) return say('voteStatus', skippedSelf ? 'Tidak bisa memilih diri sendiri. Pilih alumni lain.' : 'Ketik nama di minimal satu kategori.', 'err');
+
+  $('btnVote').disabled = true; say('voteStatus', 'Mengirim…');
+  store.set('alumniName', voter); $('mName').value = voter;
+  
+  // Insert ke database (tabel award_votes)
+  const results = await Promise.all(picks.map(p => db.from('award_votes').insert(p)));
+  
+  const ok = results.filter(r => !r.error).length;
+  const dup = results.filter(r => r.error && r.error.code === '23505').length;
+  const fail = results.length - ok - dup;
+  $('btnVote').disabled = false;
+
+  const parts = [];
+  if (ok) parts.push(`${ok} suara tersimpan`);
+  if (dup) parts.push(`${dup} kategori sudah pernah kamu pilih`);
+  if (skippedSelf) parts.push(`${skippedSelf} dilewati (tidak bisa memilih diri sendiri)`);
+  if (fail) parts.push(`${fail} gagal, coba lagi`);
+  
+  say('voteStatus', parts.join(' · ') + '.', fail ? 'err' : 'ok');
+  
+  if (ok) { 
+    store.set('voteDone', '1'); 
+    setTimeout(() => showTab('result'), 900); 
+  }
+};
+
+// ---------- Hasil Voting ----------
+async function loadResults() {
+  say('resStatus', 'Memuat…');
+  // Memuat data dari "View" award_results
+  const { data, error } = await db.from('award_results').select('category_id,nominee_name,votes');
+  const box = $('results'); box.innerHTML = '';
+  
+  if (error || !data) return say('resStatus', 'Hasil belum bisa dimuat.', 'err');
+  say('resStatus', '');
+  
+  let total = 0;
+  cats.forEach(cat => {
+    const rows = data.filter(r => r.category_id === cat.id).sort((a, b) => b.votes - a.votes || a.nominee_name.localeCompare(b.nominee_name));
+    const sum = rows.reduce((s, r) => s + r.votes, 0); total += sum;
+    
+    const sec = document.createElement('div'); sec.className = 'res';
+    const h = document.createElement('h3'); h.textContent = cat.title; sec.appendChild(h);
+    
+    if (!rows.length) { 
+      const e = document.createElement('p'); e.className = 'empty'; e.textContent = 'Belum ada suara.'; sec.appendChild(e); 
+    }
+    
+    const max = rows.length ? rows[0].votes : 1;
+    rows.slice(0, 5).forEach((r, i) => {
+      const row = document.createElement('div'); row.className = 'row' + (i === 0 ? ' top' : '');
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (i === 0 ? '🏆 ' : '') + r.nominee_name;
+      const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = r.votes + ' suara';
+      
+      const bar = document.createElement('div'); bar.className = 'bar'; bar.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('i'); fill.style.width = (r.votes / max * 100) + '%'; bar.appendChild(fill);
+      
+      row.append(nm, ct, bar); sec.appendChild(row);
+    });
+    box.appendChild(sec);
+  });
+  say('resStatus', `${total} suara masuk sejauh ini.`);
+}
+$('btnRefresh').onclick = loadResults;
+
+// ---------- Pesan & Kesan ----------
+function memoItem(m) {
+  const li = document.createElement('li');
+  const w = document.createElement('div'); w.className = 'who'; w.textContent = m.name;
+  const t = document.createElement('p'); t.className = 'txt'; t.textContent = m.message;
+  li.append(w, t); return li;
+}
+async function loadMemos() {
+  const { data, error } = await db.from('memories').select('name,message').order('created_at', { ascending: false }).limit(50);
+  const ul = $('msgs'); ul.innerHTML = '';
+  if (error || !data) return say('memoStatus', 'Pesan belum bisa dimuat.', 'err');
+  if (!data.length) say('memoStatus', 'Jadilah yang pertama menulis pesan!');
+  data.forEach(m => ul.appendChild(memoItem(m)));
+}
+$('mText').addEventListener('input', () =>$('mCount').textContent = $('mText').value.length);$('btnMemo').onclick = async () => {
+  const name = $('mName').value.trim(), message =$('mText').value.trim();
+  if (!name) { say('memoStatus', 'Isi nama dulu.', 'err'); return $('mName').focus(); }
+  if (!message) { say('memoStatus', 'Tulis pesannya dulu.', 'err'); return $('mText').focus(); }$('btnMemo').disabled = true; say('memoStatus', 'Mengirim…');
+  const { error } = await db.from('memories').insert({ name, message });
+  $('btnMemo').disabled = false;
+  
+  if (error) return say('memoStatus', 'Gagal mengirim. Coba lagi.', 'err');
+  
+  store.set('alumniName', name);
+  $('msgs').prepend(memoItem({ name, message }));
+  $('mText').value = '';$('mCount').textContent = '0';
+  say('memoStatus', 'Terkirim. Terima kasih, ' + name + '!', 'ok');
+};
+
+init();
+</script>
+</body>
+</html>

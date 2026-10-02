@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartu Obrolan · Alumni Hub</title>
+
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<div class="wrap">
+<section class="panel cards-card">
+ <nav class="site-nav" aria-label="Menu utama">
+  <a class="brand" href="index.html"><span class="brand-mark">A</span><span class="brand-text"><strong>ALUMNI HUB</strong><span>Reunion &amp; Memories</span></span></a>
+  <div class="nav-links">
+    <a href="index.html" class="NAV_INDEX">Peta Alumni</a>
+    <a href="kuis.html" class="NAV_KUIS">Kuis</a>
+    <a href="kartu.html" class="NAV_KARTU on" aria-current="page">Kartu</a>
+    <a href="voting.html" class="NAV_VOTING">Awards</a>
+  </div>
+  <a class="nav-cta" href="voting.html">Memory Wall →</a>
+</nav>
+
+  <!-- Tahap 1: moderator mengisi peserta -->
+  <div id="setup">
+    <div class="eyebrow">Connection Cards</div><div class="eyebrow">Connection Cards</div><h1>Kartu Obrolan Acak</h1>
+    <p class="sub">Bangun suasana reuni dengan memilih peserta secara acak dan membuka pertanyaan percakapan.</p>
+    <label for="nameIn">Tambah nama</label>
+    <div class="row">
+      <input type="text" id="nameIn" maxlength="30" placeholder="Ketik nama, lalu Enter" autocomplete="off">
+      <button class="btn main" id="btnAdd" type="button" style="width:auto;padding:0 18px">Tambah</button>
+    </div>
+    <label for="bulk">Atau tempel banyak nama (satu nama per baris)</label>
+    <textarea id="bulk" placeholder="Andi&#10;Budi&#10;Citra"></textarea>
+    <button class="btn ghost" id="btnBulk" type="button">Tambahkan semua dari kotak ini</button>
+    <ul class="names" id="names" aria-label="Daftar peserta"></ul>
+    <p class="count" id="count"></p>
+    <label class="check"><input type="checkbox" id="fair" checked><span>Giliran adil: orang yang sudah terpilih tidak muncul lagi sampai semua kebagian.</span></label>
+    <button class="btn mint" id="btnGo" type="button" disabled>Mulai putar roda</button>
+    <button class="btn ghost" id="btnClear" type="button" hidden>Kosongkan daftar</button>
+    <div id="status" role="status"></div>
+  </div>
+
+  <!-- Tahap 2: putar roda -->
+  <div id="spin" hidden>
+    <h2>Siapa yang kena giliran?</h2>
+    <p class="sub" id="spinInfo"></p>
+    <div class="wheelbox">
+      <div class="pointer" aria-hidden="true"></div>
+      <canvas id="wheel" width="720" height="720" role="img" aria-label="Roda nama peserta"></canvas>
+      <div class="hub" aria-hidden="true"></div>
+    </div>
+    <div class="winner" id="winner" role="status" aria-live="polite"></div>
+    <p class="left" id="left"></p>
+    <button class="btn main" id="btnSpin" type="button">Putar roda</button>
+    <button class="btn mint" id="btnToCard" type="button" hidden>Ambil kartu</button>
+    <button class="btn ghost" id="btnEdit" type="button">Ubah daftar peserta</button>
+  </div>
+
+  <!-- Tahap 3: kartu -->
+  <div id="cards" hidden>
+    <p class="turn">Giliran<br><b id="who"></b></p>
+    <div class="chips" id="chips" role="group" aria-label="Pilih kategori"></div>
+    <div class="scene">
+      <div class="card" id="card">
+        <span class="face back">Reuni</span>
+        <span class="face front" aria-live="polite"><span class="cat" id="cat"></span><span class="prompt" id="prompt"></span></span>
+      </div>
+    </div>
+    <p class="counter" id="counter"></p>
+    <button class="btn ghost" id="btnRedraw" type="button">Ganti kartu</button>
+    <button class="btn main" id="btnBack" type="button">Putar lagi</button>
+  </div>
+<div class="footer">Connection Cards · Alumni Hub</div>
+</section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const show = id => ['setup','spin','cards'].forEach(s => $(s).hidden = s !== id);
+
+/* ---------- Peserta ---------- */
+let people = [];
+try { people = JSON.parse(store.get('kartuNames') || '[]').filter(x => typeof x === 'string'); } catch (e) {}
+let pool = [];       // sisa peserta yang belum dapat giliran di putaran ini
+let current = null;  // peserta terpilih
+
+const save = () => store.set('kartuNames', JSON.stringify(people));
+function addNames(list) {
+  const msg = $('status'); msg.textContent = '';
+  let dup = 0;
+  list.map(s => s.trim()).filter(Boolean).forEach(n => {
+    if (people.some(p => p.toLowerCase() === n.toLowerCase())) dup++;
+    else people.push(n.slice(0, 30));
+  });
+  if (dup) msg.textContent = `${dup} nama dilewati karena sudah ada.`;
+  save(); renderPeople();
+}
+function renderPeople() {
+  const ul = $('names'); ul.innerHTML = '';
+  people.forEach((n, idx) => {
+    const li = document.createElement('li');
+    const sp = document.createElement('span'); sp.textContent = n;
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Hapus ' + n);
+    b.onclick = () => { people.splice(idx, 1); save(); renderPeople(); };
+    li.append(sp, b); ul.appendChild(li);
+  });
+  $('count').textContent = people.length ? `${people.length} peserta` : 'Belum ada peserta.';
+  $('btnGo').disabled = people.length < 2;
+  $('btnGo').textContent = people.length < 2 ? 'Minimal 2 peserta untuk mulai' : 'Mulai putar roda';
+  $('btnClear').hidden = !people.length;
+}
+$('btnAdd').onclick = () => { addNames([$('nameIn').value]); $('nameIn').value = ''; $('nameIn').focus(); };
+$('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnAdd').click(); });
+$('btnBulk').onclick = () => { addNames($('bulk').value.split(/\r?\n|,/)); $('bulk').value = ''; };
+$('btnClear').onclick = () => { if (confirm('Kosongkan seluruh daftar peserta?')) { people = []; save(); renderPeople(); } };
+
+/* ---------- Roda ---------- */
+const COLORS = ['#f2b632', '#7fd6c2', '#f1e7d0', '#5aa7d6', '#ff9b8a'];
+const cv = $('wheel'), cx = cv.getContext('2d');
+let rot = 0, spinning = false;
+
+function wheelNames() { return $('fair').checked ? pool : people; }
+
+function drawWheel() {
+  const list = wheelNames(), n = list.length, R = cv.width / 2, seg = 2 * Math.PI / n;
+  cx.clearRect(0, 0, cv.width, cv.height);
+  list.forEach((name, i) => {
+    const a0 = -Math.PI / 2 + i * seg;
+    cx.beginPath(); cx.moveTo(R, R); cx.arc(R, R, R - 4, a0, a0 + seg); cx.closePath();
+    let ci = i % 4; if (i === n - 1 && n % 4 === 1) ci = 4;
+    cx.fillStyle = COLORS[ci]; cx.fill();
+    cx.strokeStyle = '#0e1b2c'; cx.lineWidth = 3; cx.stroke();
+    cx.save(); cx.translate(R, R); cx.rotate(a0 + seg / 2);
+    cx.fillStyle = '#0e1b2c'; cx.textAlign = 'right'; cx.textBaseline = 'middle';
+    const size = Math.max(14, Math.min(34, Math.floor(R * seg * 0.55)));
+    cx.font = `700 ${size}px system-ui, sans-serif`;
+    let t = name; const maxW = R - 80;
+    while (cx.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -2);
+    if (t !== name) t = t.trimEnd() + '…';
+    cx.fillText(t, R - 24, 0);
+    cx.restore();
+  });
+}
+
+function refreshPool() {
+  if (!$('fair').checked) { pool = people.slice(); return; }
+  pool = pool.filter(p => people.includes(p));
+  if (!pool.length) pool = people.slice();
+}
+
+function enterSpin(resetPool) {
+  if (resetPool) pool = people.slice();
+  refreshPool();
+  show('spin');
+  $('winner').textContent = ''; $('btnToCard').hidden = true; $('btnSpin').hidden = false; $('btnSpin').disabled = false;
+  const fair = $('fair').checked;
+  $('spinInfo').textContent = `${people.length} peserta` + (fair ? ' · giliran adil aktif' : '');
+  $('left').textContent = fair ? `Sisa yang belum dapat giliran: ${pool.length} dari ${people.length}` : '';
+  rot = 0; cv.style.transition = 'none'; cv.style.transform = 'rotate(0deg)';
+  drawWheel();
+}
+
+function spin() {
+  if (spinning) return;
+  const list = wheelNames(), n = list.length, seg = 360 / n;
+  const w = Math.floor(Math.random() * n);
+  const jitter = (Math.random() - 0.5) * seg * 0.7;
+  const norm = x => ((x % 360) + 360) % 360;
+  const target = Math.ceil(rot / 360) * 360 + 360 * 5 + norm(-(w + 0.5) * seg + jitter);
+  spinning = true; $('btnSpin').disabled = true; $('winner').textContent = '';
+  cv.style.transition = reduced ? 'none' : '';
+  void cv.offsetWidth;
+  rot = target; cv.style.transform = `rotate(${rot}deg)`;
+  setTimeout(() => {
+    spinning = false; current = list[w];
+    if ($('fair').checked) pool = pool.filter(p => p !== current);
+    $('winner').textContent = current;
+    $('left').textContent = $('fair').checked ? `Sisa yang belum dapat giliran: ${pool.length} dari ${people.length}` : '';
+    $('btnSpin').hidden = true; $('btnToCard').hidden = false;
+    $('btnToCard').textContent = `Ambil kartu untuk ${current}`; $('btnToCard').focus();
+  }, reduced ? 50 : 5100);
+}
+
+$('btnGo').onclick = () => enterSpin(true);
+$('btnSpin').onclick = spin;
+$('btnEdit').onclick = () => { if (!spinning) show('setup'); };
+$('fair').onchange = () => { if (!$('spin').hidden && !spinning) enterSpin(true); };
+
+/* ---------- Kartu ---------- */
+const FALLBACK = [
+  { category: 'Nostalgia', prompt: 'Apa kenangan paling lucu yang kamu ingat dari masa kuliah?' },
+  { category: 'Nostalgia', prompt: 'Siapa teman yang paling sering kamu andalkan saat tugas menumpuk?' },
+  { category: 'Kabar Sekarang', prompt: 'Apa kabar terbaru yang paling kamu banggakan tahun ini?' },
+  { category: 'Seru-seruan', prompt: 'Kalau angkatan kita bikin grup band, kamu pegang alat apa?' },
+  { category: 'Harapan', prompt: 'Apa satu hal yang ingin kita lakukan bareng sebelum reuni berikutnya?' }
+];
+let all = [], deck = [], cat = 'Semua', cardBusy = false, cardOpen = false;
+const shuffle = a => { a = a.slice(); for (let n = a.length - 1; n > 0; n--) { const j = Math.floor(Math.random() * (n + 1)); [a[n], a[j]] = [a[j], a[n]]; } return a; };
+const poolOf = () => cat === 'Semua' ? all : all.filter(c => c.category === cat);
+
+function renderChips() {
+  const box = $('chips'); box.innerHTML = '';
+  ['Semua', ...new Set(all.map(c => c.category))].forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = c;
+    b.setAttribute('aria-pressed', String(c === cat));
+    b.onclick = () => { cat = c; deck = []; renderChips(); drawCard(); };
+    box.appendChild(b);
+  });
+}
+function drawCard() {
+  if (cardBusy || !all.length) return;
+  if (!deck.length) deck = shuffle(poolOf());
+  if (!deck.length) { $('counter').textContent = 'Belum ada kartu di kategori ini.'; return; }
+  cardBusy = true;
+  const reveal = () => {
+    const c = deck.pop();
+    $('cat').textContent = c.category; $('prompt').textContent = c.prompt;
+    $('counter').textContent = `Sisa kartu di tumpukan: ${deck.length}`;
+    cardOpen = true; $('card').classList.add('open');
+    setTimeout(() => cardBusy = false, reduced ? 0 : 300);
+  };
+  if (cardOpen) { $('card').classList.remove('open'); cardOpen = false; setTimeout(reveal, reduced ? 0 : 450); } else reveal();
+}
+function enterCards() {
+  show('cards');
+  $('who').textContent = current;
+  $('card').classList.remove('open'); cardOpen = false; cardBusy = false;
+  renderChips();
+  setTimeout(drawCard, 300);
+}
+$('btnToCard').onclick = enterCards;
+$('btnRedraw').onclick = drawCard;
+$('btnBack').onclick = () => enterSpin(false);
+
+async function loadCards() {
+  const { data, error } = await db.from('chat_cards').select('category,prompt').order('id');
+  all = (error || !data || !data.length) ? FALLBACK : data;
+}
+
+renderPeople();
+loadCards();
+</script>
+</body>
+</html>

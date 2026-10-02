@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kuis Nostalgia · Alumni Hub</title>
+
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<div class="wrap">
+<section class="panel quiz-card">
+  <nav class="site-nav" aria-label="Menu utama">
+  <a class="brand" href="index.html"><span class="brand-mark">A</span><span class="brand-text"><strong>ALUMNI HUB</strong><span>Reunion &amp; Memories</span></span></a>
+  <div class="nav-links">
+    <a href="index.html" class="NAV_INDEX">Peta Alumni</a>
+    <a href="kuis.html" class="NAV_KUIS on" aria-current="page">Kuis</a>
+    <a href="kartu.html" class="NAV_KARTU">Kartu</a>
+    <a href="voting.html" class="NAV_VOTING">Awards</a>
+  </div>
+  <a class="nav-cta" href="voting.html">Memory Wall →</a>
+</nav>
+  <!-- Awal -->
+  <div id="intro" class="quiz-intro">
+    <div class="eyebrow">Reunion Challenge</div><h1>Kuis Nostalgia</h1><div class="intro-number">01</div>
+    <p class="sub" id="introInfo">Memuat soal…</p>
+    <p>Seberapa kuat kamu masih mengingat cerita, kebiasaan, dan momen masa kuliah? Jawab cepat untuk mengumpulkan poin.</p>
+    <label for="name">Nama</label>
+    <input id="name" maxlength="60" placeholder="Nama kamu" autocomplete="name">
+    <button class="main" id="btnStart" type="button" disabled>Mulai kuis</button>
+    <div id="status" role="status"></div>
+  </div>
+
+  <!-- Soal -->
+  <div id="play" hidden>
+    <div class="progress"><span id="pos"></span><span id="pts"></span></div>
+    <div class="bar" aria-hidden="true"><i id="timer"></i></div>
+    <p class="q" id="question"></p>
+    <div class="opts" id="opts"></div>
+    <div id="feedback" role="status"></div>
+    <button class="ghost" id="btnNext" type="button" hidden>Soal berikutnya</button>
+  </div>
+
+  <!-- Hasil -->
+  <div id="result" hidden>
+    <h2 id="resTitle">Selesai!</h2>
+    <div class="big" id="resScore">0</div>
+    <p class="sub" id="resDetail"></p>
+    <p class="hint" id="resStatus" role="status"></p>
+    <h2 style="margin-top:18px;font-size:1.1rem">Papan skor</h2>
+    <ol class="board" id="board"></ol>
+    <a class="btn mint" href="kartu.html">Lanjut ke Kartu Obrolan →</a>
+    <button class="ghost" id="btnAgain" type="button">Main lagi</button>
+  </div>
+<div class="footer">Reunion Challenge · Alumni Hub</div>
+</section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const say = (t, cls = '') => { $('status').textContent = t; $('status').className = cls; };
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+
+const LIMIT = 15;            // detik per soal
+const BASE = 100, BONUS = 50; // poin dasar + bonus kecepatan per soal
+let qs = [], i = 0, score = 0, correct = 0, t0 = 0, tick = null, locked = false, myName = '';
+
+if (store.get('alumniName')) $('name').value = store.get('alumniName');
+
+async function loadQuestions() {
+  const { data, error } = await db.from('quiz_questions')
+    .select('position,question,options,answer_index').order('position');
+  if (error || !data || !data.length) {
+    $('introInfo').textContent = 'Soal belum bisa dimuat.';
+    say(error ? 'Periksa URL dan key Supabase.' : 'Belum ada soal di database.', 'err');
+    return;
+  }
+  qs = data;
+  $('introInfo').textContent = `${qs.length} soal · ${LIMIT} detik per soal`;
+  $('btnStart').disabled = false;
+}
+
+function show(id) { ['intro','play','result'].forEach(s => $(s).hidden = s !== id); }
+
+function start() {
+  myName = $('name').value.trim();
+  if (!myName) { say('Isi nama dulu.', 'err'); return $('name').focus(); }
+  store.set('alumniName', myName);
+  i = 0; score = 0; correct = 0;
+  show('play'); showQ();
+}
+
+function showQ() {
+  const q = qs[i];
+  locked = false;
+  $('pos').textContent = `Soal ${i + 1} dari ${qs.length}`;
+  $('pts').textContent = `${score} poin`;
+  $('question').textContent = q.question;
+  $('feedback').textContent = '';
+  $('btnNext').hidden = true;
+  const box = $('opts'); box.innerHTML = '';
+  q.options.forEach((text, idx) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'opt'; b.textContent = text;
+    b.onclick = () => answer(idx);
+    box.appendChild(b);
+  });
+  t0 = performance.now();
+  clearInterval(tick);
+  tick = setInterval(() => {
+    const left = Math.max(0, LIMIT - (performance.now() - t0) / 1000);
+    $('timer').style.transform = `scaleX(${left / LIMIT})`;
+    if (left <= 0) answer(-1);
+  }, 100);
+}
+
+function answer(idx) {
+  if (locked) return;
+  locked = true; clearInterval(tick);
+  const q = qs[i];
+  const left = Math.max(0, LIMIT - (performance.now() - t0) / 1000);
+  const btns = [...$('opts').children];
+  btns.forEach(b => b.disabled = true);
+  btns[q.answer_index].classList.add('right');
+  if (idx === q.answer_index) {
+    const gain = BASE + Math.round(BONUS * left / LIMIT);
+    score += gain; correct++;
+    $('feedback').textContent = `Benar! +${gain} poin`;
+  } else if (idx === -1) {
+    $('feedback').textContent = 'Waktu habis. Jawaban yang benar ditandai hijau.';
+  } else {
+    btns[idx].classList.add('wrong');
+    $('feedback').textContent = 'Belum tepat. Jawaban yang benar ditandai hijau.';
+  }
+  $('pts').textContent = `${score} poin`;
+  $('btnNext').textContent = i + 1 < qs.length ? 'Soal berikutnya' : 'Lihat hasil';
+  $('btnNext').hidden = false;
+  $('btnNext').focus();
+}
+
+async function finish() {
+  show('result');
+  score = Math.min(score, 5000);
+  $('resScore').textContent = score;
+  $('resDetail').textContent = `${correct} dari ${qs.length} soal benar`;
+  $('resStatus').textContent = 'Menyimpan skor…';
+  $('resStatus').className = 'hint';
+  const { error } = await db.from('quiz_scores').insert({ name: myName, score, correct, total: qs.length });
+  if (error) $('resStatus').textContent = 'Skor belum tersimpan. Papan skor di bawah mungkin belum memuat skormu.';
+  else { $('resStatus').textContent = 'Skor tersimpan.'; store.set('quizDone', '1'); }
+  loadBoard();
+}
+
+async function loadBoard() {
+  const { data, error } = await db.from('quiz_scores')
+    .select('name,score,created_at').order('score', { ascending: false }).order('created_at').limit(10);
+  const ol = $('board'); ol.innerHTML = '';
+  if (error || !data) { ol.innerHTML = '<li>Papan skor belum bisa dimuat.</li>'; return; }
+  let marked = false;
+  data.forEach((r, n) => {
+    const li = document.createElement('li');
+    if (!marked && r.name === myName && r.score === score) { li.className = 'me'; marked = true; }
+    li.innerHTML = '<span class="rk"></span><span class="nm"></span><span class="sc"></span>';
+    li.children[0].textContent = n + 1;
+    li.children[1].textContent = r.name;
+    li.children[2].textContent = r.score;
+    ol.appendChild(li);
+  });
+}
+
+$('btnStart').onclick = start;
+$('name').addEventListener('keydown', e => { if (e.key === 'Enter' && !$('btnStart').disabled) start(); });
+$('btnNext').onclick = () => { if (i + 1 < qs.length) { i++; showQ(); } else finish(); };
+$('btnAgain').onclick = () => { show('intro'); say(''); };
+
+loadQuestions();
+</script>
+</body>
+</html>

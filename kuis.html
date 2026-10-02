@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kuis Nostalgia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0e1b2c;--sea:#16324f;--sand:#f1e7d0;--gold:#f2b632;--mint:#7fd6c2;--err:#ff9b8a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at 20% 0%,#1d4467 0,var(--ink) 55%);color:var(--sand);display:flex;justify-content:center;padding:20px}
+main{width:100%;max-width:560px}
+nav a{color:var(--mint);font-size:.85rem;text-decoration:none}
+h1,h2{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;line-height:1.1;margin:.4em 0}
+h1{font-size:2.1rem}
+.card{background:rgba(14,27,44,.85);border:1px solid rgba(241,231,208,.18);border-radius:14px;padding:20px;margin-top:14px}
+.hidden{display:none}
+label{display:block;font-size:.85rem;margin:12px 0 4px}
+input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(241,231,208,.25);background:var(--sea);color:var(--sand);font:inherit}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn{width:100%;margin-top:12px;padding:11px;border-radius:8px;border:0;font-weight:600;background:var(--gold);color:var(--ink)}
+.btn.ghost{background:transparent;color:var(--sand);border:1px solid rgba(241,231,208,.4)}
+.meta{display:flex;justify-content:space-between;font-size:.85rem;opacity:.85}
+.bar{height:6px;border-radius:3px;background:var(--sea);margin:8px 0 16px;overflow:hidden}
+.bar i{display:block;height:100%;width:100%;background:var(--gold)}
+.q{font-size:1.25rem;line-height:1.35;margin:0 0 14px}
+.opt{display:block;width:100%;text-align:left;margin-top:8px;padding:12px 14px;border-radius:10px;border:1px solid rgba(241,231,208,.3);background:var(--sea);color:var(--sand)}
+.opt:hover:not(:disabled){border-color:var(--gold)}
+.opt.right{background:#1f6b5a;border-color:var(--mint)}
+.opt.wrong{background:#6b2f2f;border-color:var(--err)}
+.opt:disabled{cursor:default}
+#fb{min-height:1.4em;margin:12px 0 0;font-weight:600}
+.big{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:3rem;font-weight:800;color:var(--gold);margin:0}
+ol{padding-left:1.4em;margin:8px 0 0}
+li{padding:5px 0;border-bottom:1px solid rgba(241,231,208,.1)}
+li span{float:right;font-weight:600;color:var(--gold)}
+li.me{color:var(--mint)}
+.err{color:var(--err);font-size:.85rem;min-height:1.2em;margin:8px 0 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="index.html">← Peta Alumni</a></nav>
+
+  <section id="s-start" class="card">
+    <h1>Kuis Nostalgia</h1>
+    <p>Seberapa kuat ingatanmu tentang masa kuliah? Jawab cepat, karena sisa waktu menambah poin.</p>
+    <label for="name">Nama</label>
+    <input id="name" maxlength="60" placeholder="Nama kamu" autocomplete="name">
+    <button class="btn" id="go">Mulai kuis</button>
+    <button class="btn ghost" id="showBoard">Lihat papan skor</button>
+    <p class="err" id="err"></p>
+  </section>
+
+  <section id="s-quiz" class="card hidden">
+    <div class="meta"><span id="prog"></span><span id="pts"></span></div>
+    <div class="bar"><i id="barFill"></i></div>
+    <p class="q" id="qtext"></p>
+    <div id="opts"></div>
+    <p id="fb" role="status"></p>
+    <button class="btn hidden" id="next">Soal berikutnya</button>
+  </section>
+
+  <section id="s-end" class="card hidden">
+    <h2>Selesai!</h2>
+    <p class="big" id="final"></p>
+    <p id="summary"></p>
+    <h2>Papan skor</h2>
+    <ol id="board"></ol>
+    <p class="err" id="err2"></p>
+    <button class="btn ghost" id="again">Main lagi</button>
+  </section>
+
+  <section id="s-board" class="card hidden">
+    <h2>Papan skor</h2>
+    <ol id="board2"></ol>
+    <button class="btn ghost" id="back">Kembali</button>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// ====== ISI DENGAN DATA PROYEK SUPABASE YANG SAMA DENGAN PETA ======
+const SUPABASE_URL = 'https://gcrccviigeqaiiuwdezs.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable__AAZtFIKxorE_uiPsq_yVA_gmDq-1d5';
+// ===================================================================
+const TIME = 15;            // detik per soal
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const screens = ['s-start', 's-quiz', 's-end', 's-board'];
+const show = id => screens.forEach(s => $(s).classList.toggle('hidden', s !== id));
+
+let qs = [], i = 0, score = 0, right = 0, name = '', timer = null, deadline = 0, locked = false;
+
+async function loadQuestions() {
+  const { data, error } = await db.from('quiz_questions').select('id,question,options,answer_index').order('position');
+  if (error || !data || !data.length) throw new Error('Soal belum tersedia.');
+  qs = data;
+}
+
+async function renderBoard(el, myName) {
+  const { data, error } = await db.from('quiz_scores').select('name,score').order('score', { ascending: false }).limit(100);
+  el.textContent = '';
+  if (error) { el.textContent = 'Papan skor belum bisa dimuat.'; return; }
+  const seen = new Set();
+  data.filter(r => { const k = r.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 10).forEach(r => {
+      const li = document.createElement('li');
+      li.textContent = r.name;
+      if (myName && r.name.toLowerCase() === myName.toLowerCase()) li.className = 'me';
+      const s = document.createElement('span'); s.textContent = r.score; li.appendChild(s);
+      el.appendChild(li);
+    });
+  if (!el.children.length) el.textContent = 'Belum ada skor. Jadilah yang pertama!';
+}
+
+function renderQ() {
+  const q = qs[i]; locked = false;
+  $('prog').textContent = `Soal ${i + 1} dari ${qs.length}`;
+  $('pts').textContent = `Skor ${score}`;
+  $('qtext').textContent = q.question;
+  $('fb').textContent = ''; $('next').classList.add('hidden');
+  const box = $('opts'); box.textContent = '';
+  q.options.forEach((t, idx) => {
+    const b = document.createElement('button');
+    b.className = 'opt'; b.textContent = t; b.onclick = () => answer(idx);
+    box.appendChild(b);
+  });
+  deadline = Date.now() + TIME * 1000;
+  clearInterval(timer);
+  timer = setInterval(() => {
+    const left = deadline - Date.now();
+    $('barFill').style.width = Math.max(0, left / (TIME * 10)) + '%';
+    if (left <= 0) answer(-1);
+  }, 100);
+}
+
+function answer(idx) {
+  if (locked) return; locked = true; clearInterval(timer);
+  const q = qs[i];
+  const secs = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  const ok = idx === q.answer_index;
+  if (ok) { right++; score += 100 + secs * 5; }
+  [...$('opts').children].forEach((b, k) => {
+    b.disabled = true;
+    if (k === q.answer_index) b.classList.add('right');
+    else if (k === idx) b.classList.add('wrong');
+  });
+  $('fb').textContent = ok ? `Benar! +${100 + secs * 5} poin` : idx === -1 ? 'Waktu habis.' : 'Kurang tepat.';
+  $('pts').textContent = `Skor ${score}`;
+  $('next').textContent = i + 1 < qs.length ? 'Soal berikutnya' : 'Lihat hasil';
+  $('next').classList.remove('hidden'); $('next').focus();
+}
+
+async function finish() {
+  show('s-end');
+  $('final').textContent = score;
+  $('summary').textContent = `${right} dari ${qs.length} jawaban benar.`;
+  $('err2').textContent = '';
+  const { error } = await db.from('quiz_scores').insert({ name, score, correct: right, total: qs.length });
+  if (error) $('err2').textContent = 'Skor gagal disimpan. Coba main lagi.';
+  renderBoard($('board'), name);
+}
+
+$('go').onclick = async () => {
+  name = $('name').value.trim();
+  if (!name) { $('err').textContent = 'Isi nama dulu.'; return $('name').focus(); }
+  $('err').textContent = 'Memuat soal…';
+  try { await loadQuestions(); } catch (e) { return ($('err').textContent = e.message); }
+  $('err').textContent = ''; i = 0; score = 0; right = 0;
+  show('s-quiz'); renderQ();
+};
+$('next').onclick = () => { i++; i < qs.length ? renderQ() : finish(); };
+$('again').onclick = () => show('s-start');
+$('showBoard').onclick = () => { show('s-board'); renderBoard($('board2'), $('name').value.trim()); };
+$('back').onclick = () => show('s-start');
+</script>
+</body>
+</html>

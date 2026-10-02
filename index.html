@@ -31,6 +31,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .pin.me{background:var(--mint);box-shadow:0 0 0 4px rgba(127,214,194,.4)}
 .leaflet-popup-content{font-family:system-ui,sans-serif;margin:10px 12px}
 .leaflet-popup-content b{font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.menu{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.menu a,.menu span{flex:1 1 auto;text-align:center;padding:7px 10px;border-radius:999px;font-size:.8rem;font-weight:600;text-decoration:none;border:1px solid rgba(241,231,208,.3);color:var(--sand)}
+.menu a:hover{border-color:var(--gold)}
+.menu a.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.menu span{opacity:.45;cursor:not-allowed}
+.cta{display:block;margin-top:12px;padding:11px;border-radius:8px;background:var(--mint);color:var(--ink);font-weight:700;text-align:center;text-decoration:none}
 @media (max-width:600px){.panel{top:auto;bottom:0;left:0;width:100%;max-height:60%;border-radius:14px 14px 0 0}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
@@ -39,6 +45,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="map"></div>
 
 <section class="panel">
+  <nav class="menu" aria-label="Menu utama"><a href="index.html" class="on" aria-current="page">Peta Alumni</a><a href="kuis.html">Kuis Nostalgia</a><span title="Segera hadir">Kartu Obrolan</span><span title="Segera hadir">Voting</span></nav>
   <h1>Peta Alumni</h1>
   <p class="count" id="count">Memuat peta…</p>
 
@@ -54,16 +61,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <button class="main" id="btnSave" type="button" disabled>Tandai lokasi saya</button>
   <p class="hint">Lokasi dibulatkan ke area ±1 km supaya alamat rumah tidak terlihat.</p>
   <div id="status" role="status"></div>
+  <a class="cta" id="cta" href="kuis.html" hidden>Lanjut ke Kuis Nostalgia →</a>
 </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <script>
-// ====== ISI DENGAN DATA PROYEK SUPABASE KAMU (Project Settings > API) ======
-const SUPABASE_URL = 'https://gcrccviigeqaiiuwdezs.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable__AAZtFIKxorE_uiPsq_yVA_gmDq-1d5';
-// ===========================================================================
-
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 const statusEl = $('status');
@@ -82,6 +86,9 @@ const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 L.control.layers({ 'Satelit': sat, 'Peta jalan': street }, { 'Nama tempat': labels }, { position: 'topright' }).addTo(map);
 
 const icon = cls => L.divIcon({ className: '', html: `<div class="pin ${cls}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+if (store.get('alumniName')) $('name').value = store.get('alumniName');
+if (store.get('alumniDone')) $('cta').hidden = false;
 const round = n => Math.round(n * 100) / 100;
 
 // Tampilkan alumni yang sudah tersimpan
@@ -130,7 +137,8 @@ $('btnSave').onclick = async () => {
   if (error) { $('btnSave').disabled = false; return say('Gagal menyimpan. Coba lagi.', 'err'); }
   map.removeLayer(me); me = null;
   addAlumni(row);
-  say('Tersimpan. Terima kasih, ' + name + '!', 'ok');
+  store.set('alumniName', name); store.set('alumniDone', '1'); $('cta').hidden = false;
+  say('Tersimpan. Terima kasih, ' + name + '! Lanjut main kuis, yuk.', 'ok');
   const n = parseInt($('count').textContent) || 0;
   $('count').textContent = `${n + 1} alumni sudah menandai lokasi`;
 };
